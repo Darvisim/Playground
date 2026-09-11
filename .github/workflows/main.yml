@@ -37,9 +37,10 @@ jobs:
       - name: Compile CMake for iOS
         run: |
           cd cmake-build
-          cmake --build . --config Release --target cmake -- -sdk iphoneos
-          cmake --build . --config Release --target ctest -- -sdk iphoneos
-          cmake --build . --config Release --target cpack -- -sdk iphoneos
+          cmake --build . --config Release --target cmake -- -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          cmake --build . --config Release --target ctest -- -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          cmake --build . --config Release --target cpack -- -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+
 
       - name: Verify iOS Binaries
         run: |
