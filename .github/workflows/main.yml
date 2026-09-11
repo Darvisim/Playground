@@ -1,0 +1,61 @@
+name: Build CMake for iOS Target
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    # macOS runner is strictly required for iOS builds to access the Xcode SDKs
+    runs-on: macos-latest
+
+    env:
+      CMAKE_VERSION: "3.30.2" # Target CMake version
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch CMake Source Code
+        run: |
+          echo "Downloading CMake Source v${CMAKE_VERSION}..."
+          curl -LO https://github.com{CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz
+          tar -xzf cmake-${CMAKE_VERSION}.tar.gz
+
+      - name: Configure CMake for iOS
+        run: |
+          mkdir cmake-build
+          cd cmake-build
+          
+          # We use Xcode as the generator to cleanly build cross-compiled universal binaries
+          cmake -G "Xcode" \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=OFF \
+            -DCMake_BUILD_LXML=OFF \
+            ../cmake-${CMAKE_VERSION}
+
+      - name: Compile CMake for iOS
+        run: |
+          cd cmake-build
+          # Build the Release-iphoneos slice using xcodebuild via CMake
+          cmake --build . --config Release --target cmake -- -sdk iphoneos
+          cmake --build . --config Release --target ctest -- -sdk iphoneos
+          cmake --build . --config Release --target cpack -- -sdk iphoneos
+
+      - name: Verify iOS Binaries
+        run: |
+          # Verify file generation and that they are compiled for arm64 iOS
+          ls -lh cmake-build/bin/Release-iphoneos/cmake
+          file cmake-build/bin/Release-iphoneos/cmake
+
+      - name: Upload iOS Binaries as Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmake-ios-binaries
+          path: |
+            cmake-build/bin/Release-iphoneos/cmake
+            cmake-build/bin/Release-iphoneos/ctest
+            cmake-build/bin/Release-iphoneos/cpack
