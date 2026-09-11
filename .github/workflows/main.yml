@@ -24,7 +24,7 @@ jobs:
 
       - name: Configure CMake for iOS
         run: |
-          rm -rf cmake-build && mkdir cmake-build && cd cmake-build
+          mkdir cmake-build && cd cmake-build
           
           cmake -G "Xcode" \
             -DCMAKE_SYSTEM_NAME=iOS \
@@ -32,8 +32,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_TESTING=OFF \
             -DCMake_BUILD_LXML=OFF \
-            -DCMake_USE_SYSTEM_CURL=OFF \
-            -DCMake_USE_OPENSSL=OFF \
+            -DCMAKE_USE_SYSTEM_LIBRARIES=OFF \
             ../cmake-${CMAKE_VERSION}
 
       - name: Compile CMake for iOS
