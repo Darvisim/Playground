@@ -31,7 +31,6 @@ jobs:
             -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_TESTING=OFF \
-            -DCMake_BUILD_LXML=OFF \
             -DCMAKE_USE_SYSTEM_LIBRARIES=OFF \
             ../cmake-${CMAKE_VERSION}
 
