@@ -24,8 +24,7 @@ jobs:
 
       - name: Configure CMake for iOS
         run: |
-          mkdir cmake-build
-          cd cmake-build
+          rm -rf cmake-build && mkdir cmake-build && cd cmake-build
           
           cmake -G "Xcode" \
             -DCMAKE_SYSTEM_NAME=iOS \
