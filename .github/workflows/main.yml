@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Fetch CMake Source Code
         run: |
@@ -34,6 +34,7 @@ jobs:
             -DBUILD_TESTING=OFF \
             -DCMake_BUILD_LXML=OFF \
             -DCMake_USE_SYSTEM_CURL=OFF \
+            -DCMake_USE_OPENSSL=OFF \
             ../cmake-${CMAKE_VERSION}
 
       - name: Compile CMake for iOS
@@ -49,7 +50,7 @@ jobs:
           file cmake-build/bin/Release-iphoneos/cmake
 
       - name: Upload iOS Binaries as Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cmake-ios-binaries
           path: |
