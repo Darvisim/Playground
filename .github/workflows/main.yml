@@ -9,7 +9,7 @@ jobs:
   build-ios:
     runs-on: macos-latest
     container:
-      image: 05nelsonm/build-env.ios.aarch64
+      image: 05nelsonm/build-env.ios.aarch64:base
       
     steps:
       - name: Checkout repository
