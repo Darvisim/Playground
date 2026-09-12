@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     container:
       image: 05nelsonm/build-env.ios.aarch64:0.4.1
       
