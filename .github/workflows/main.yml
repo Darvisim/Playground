@@ -1,58 +1,21 @@
-name: Build CMake for iOS Target
+name: Test iOS environment
 
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
 
-env:
-    CMAKE_VERSION: "4.4.3"
-
 jobs:
   build-ios:
     runs-on: macos-latest
-
+    container:
+      image: 05nelsonm/build-env.ios.aarch64
+      
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Fetch CMake Source Code
         run: |
-          echo "Downloading CMake Source v${CMAKE_VERSION}..."
-          curl -LO https://github.com/Kitware/cmake/releases/latest/download/cmake-${CMAKE_VERSION}.tar.gz
-          tar -xzf cmake-${CMAKE_VERSION}.tar.gz
-
-      - name: Configure CMake for iOS
-        run: |
-          mkdir cmake-build && cd cmake-build
-          
-          cmake -G "Xcode" \
-            -DCMAKE_SYSTEM_NAME=iOS \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_TESTING=OFF \
-            -DCMAKE_USE_SYSTEM_LIBRARIES=OFF \
-            -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
-            ../cmake-${CMAKE_VERSION}
-
-      - name: Compile CMake for iOS
-        run: |
-          cd cmake-build
-          cmake --build . --config Release --target cmake -- -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
-          cmake --build . --config Release --target ctest -- -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
-          cmake --build . --config Release --target cpack -- -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
-
-
-      - name: Verify iOS Binaries
-        run: |
-          ls -lh cmake-build/bin/Release-iphoneos/cmake
-          file cmake-build/bin/Release-iphoneos/cmake
-
-      - name: Upload iOS Binaries as Artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: cmake-ios-binaries
-          path: |
-            cmake-build/bin/Release-iphoneos/cmake
-            cmake-build/bin/Release-iphoneos/ctest
-            cmake-build/bin/Release-iphoneos/cpack
+          uname -a
+          echo "Hello"
