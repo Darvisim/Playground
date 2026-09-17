@@ -1,4 +1,4 @@
-name: Test iOS environment
+name: Test iOS simulator
 
 on:
   push:
@@ -20,5 +20,5 @@ jobs:
           os_version: ">=14.0"
           wait_for_boot: true
 
-      - name: Test commands
-        run: printf "echo 'Writing script...'\necho 'pwd\nls -la' > /tmp/myscript.sh\nchmod +x /tmp/myscript.sh\n/tmp/myscript.sh\n" | xcrun simctl spawn booted bash -s
+      - name: Test simulator
+        run: xcrun simctl spawn booted /bin/sh -c "echo 'Hello from inside the simulator!'; uname -a"
