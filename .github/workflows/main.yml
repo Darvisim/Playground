@@ -7,15 +7,18 @@ on:
 
 jobs:
   build-ios:
-    runs-on: ubuntu-latest
-    container:
-      image: 05nelsonm/build-env.ios.aarch64:0.4.1
+    runs-on: macos-latest
       
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Fetch CMake Source Code
-        run: |
-          uname -a
-          echo "Hello"
+      - name: Setup and Boot iOS Simulator
+        uses: futureware-tech/simulator-action@v5
+        with:
+          os: 'iOS'
+          os_version: ">=14.0"
+          wait_for_boot: true
+
+      - name: Test commands
+        run: printf "echo 'Writing script...'\necho 'pwd\nls -la' > /tmp/myscript.sh\nchmod +x /tmp/myscript.sh\n/tmp/myscript.sh\n" | xcrun simctl spawn booted bash -s
