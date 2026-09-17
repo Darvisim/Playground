@@ -21,4 +21,4 @@ jobs:
           wait_for_boot: true
 
       - name: Test simulator
-        run: xcrun simctl spawn booted /bin/sh -c "echo 'Hello from inside the simulator!'; uname -a"
+        run: xcrun simctl spawn booted sh -c "echo hello"
