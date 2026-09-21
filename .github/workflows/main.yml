@@ -21,4 +21,4 @@ jobs:
           wait_for_boot: true
 
       - name: Test simulator
-        run: xcrun simctl spawn booted sh -c "echo hello"
+        run: printf "echo hello" | xcrun simctl spawn booted "$@"
