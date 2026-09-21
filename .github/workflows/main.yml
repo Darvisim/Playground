@@ -21,4 +21,6 @@ jobs:
           wait_for_boot: true
 
       - name: Test simulator
-        run: printf "echo hello\n" | script -q /dev/null xcrun simctl spawn booted /bin/sh
+        run: |
+         unset DYLD_LIBRARY_PATH DYLD_FRAMEWORK_PATH DYLD_IMAGE_SUFFIX DYLD_FALLBACK_LIBRARY_PATH SIMCTL_CHILD_DYLD_FALLBACK_LIBRARY_PATH
+         printf "echo hello\n" | xcrun simctl spawn booted /bin/sh
