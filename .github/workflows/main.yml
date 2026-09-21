@@ -22,5 +22,6 @@ jobs:
 
       - name: Test simulator
         run: |
-         unset DYLD_LIBRARY_PATH DYLD_FRAMEWORK_PATH DYLD_IMAGE_SUFFIX DYLD_FALLBACK_LIBRARY_PATH SIMCTL_CHILD_DYLD_FALLBACK_LIBRARY_PATH
-         printf "echo hello\n" | xcrun simctl spawn booted /bin/sh
+         echo "ls" > script.sh
+         chmod +x script.sh
+         xcrun simctl spawn booted ./script.sh
