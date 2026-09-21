@@ -24,4 +24,4 @@ jobs:
         run: |
          printf "#!/bin/sh\nls\n" > script.sh
          chmod +x script.sh
-         xcrun --sdk iphonesimulator simctl spawn booted ./script.sh
+         env -u SDKROOT -u MACOSX_DEPLOYMENT_TARGET xcrun simctl spawn booted ./script.sh
