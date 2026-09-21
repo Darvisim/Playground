@@ -22,6 +22,6 @@ jobs:
 
       - name: Test simulator
         run: |
-         echo "ls" > script.sh
+         printf "#!/bin/sh\nls\n" > script.sh
          chmod +x script.sh
          xcrun simctl spawn booted ./script.sh
