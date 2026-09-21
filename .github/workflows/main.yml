@@ -21,4 +21,4 @@ jobs:
           wait_for_boot: true
 
       - name: Test simulator
-        run: printf "echo 'hello from the simulator'\npwd\n" | xcrun simctl spawn booted /bin/sh -s
+        run: printf "echo hello" | env -i PATH="$PATH" xcrun simctl spawn booted /bin/sh -s
