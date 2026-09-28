@@ -20,9 +20,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Set up Android SDK
-      uses: android-actions/setup-android@v3
-
     - name: Boot emulator and run Termux
       uses: reactivecircus/android-emulator-runner@v2
       env:
