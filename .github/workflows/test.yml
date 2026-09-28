@@ -12,16 +12,16 @@ jobs:
   smoke-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Install Termux and run smoke test
+      - name: Set up Termux
         uses: Darvisim/Playground@main
         with:
-          api-level: "30"
           arch: x86_64
-          termux-apk-url: https://github.com/termux/termux-app/releases/download/v0.118.3/termux-app_v0.118.3+github-debug_universal.apk
-          command: |
-            set -eu
-            test -x "$PREFIX/bin/bash"
-            printf 'Termux CI ready: %s\n' "$PREFIX"
-            bash --version
+
+      - name: Run smoke test in Termux
+        shell: termux {0}
+        run: |
+          test -x "$PREFIX/bin/bash"
+          printf 'Termux CI ready: %s\n' "$PREFIX"
+          bash --version
