@@ -1,41 +1,14 @@
 name: Setup Termux
-description: Run a command in Termux on an Android emulator
+description: Set up a Termux shell on an Android emulator
 
 inputs:
-  termux-apk-url:
-    description: URL of a debuggable Termux APK
-    required: true
-  command:
-    description: Shell script to execute inside Termux
-    required: true
-  api-level:
-    description: Android emulator API level
-    required: false
-    default: "30"
   arch:
     description: Android emulator architecture
     required: false
     default: x86_64
 
 runs:
-  using: composite
-  steps:
-    - name: Enable KVM group perms
-      shell: bash
-      run: |
-        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-        sudo udevadm control --reload-rules
-        sudo udevadm trigger --name-match=kvm
-        
-    - name: Boot emulator and run Termux
-      uses: reactivecircus/android-emulator-runner@v2
-      env:
-        TERMUX_APK_URL: ${{ inputs.termux-apk-url }}
-        TERMUX_COMMAND: ${{ inputs.command }}
-        TERMUX_ACTION_PATH: ${{ github.action_path }}
-      with:
-        api-level: ${{ inputs.api-level }}
-        arch: ${{ inputs.arch }}
-        target: google_apis
-        profile: pixel_2
-        script: bash "$TERMUX_ACTION_PATH/scripts/run-termux.sh"
+  using: node24
+  main: dist/index.js
+  post: dist/post.js
+  post-if: always()
