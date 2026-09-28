@@ -168,7 +168,9 @@ async function main() {
 
   const runnerTemp = process.env.RUNNER_TEMP || os.tmpdir();
   const statePath = path.join(runnerTemp, 'termux-emulator-state.json');
-  const emulatorLog = fs.openSync(path.join(runnerTemp, 'termux-emulator.log'), 'a');
+  const emulatorLogPath = path.join(runnerTemp, 'termux-emulator.log');
+  const emulatorLogFd = fs.openSync(emulatorLogPath, 'a');
+
   const emulatorProcess = spawn(emulator, [
     '-avd', AVD_NAME,
     '-port', '5554',
@@ -180,10 +182,11 @@ async function main() {
     '-no-snapshot-save',
   ], {
     detached: true,
-    stdio: ['ignore', emulatorLog, emulatorLog],
+    stdio: ['ignore', emulatorLogFd, emulatorLogFd],
     env: process.env,
   });
-  fs.closeSync(emulatorLog);
+
+  fs.closeSync(emulatorLogFd);
 
   await new Promise((resolve, reject) => {
     emulatorProcess.once('spawn', resolve);
@@ -201,19 +204,19 @@ async function main() {
     await waitForBoot(adb);
   } catch (error) {
     console.error('--- emulator log (last 200 lines) ---');
-    if (fs.existsSync(emulatorLog)) {
+    if (fs.existsSync(emulatorLogPath)) {
       console.error(
-        fs.readFileSync(emulatorLog, 'utf8').split('\n').slice(-200).join('\n'),
+        fs.readFileSync(emulatorLogPath, 'utf8').split('\n').slice(-200).join('\n'),
       );
     }
-  
+
     const devices = spawnSync(adb, ['devices', '-l'], {
       encoding: 'utf8',
       timeout: 10_000,
     });
     console.error('--- adb devices ---');
     console.error(devices.stdout || devices.stderr || '(no output)');
-  
+
     throw error;
   }
 
