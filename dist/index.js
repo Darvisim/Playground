@@ -91,7 +91,7 @@ function sleep(milliseconds) {
 }
 
 async function waitForBoot(adb) {
-  run(adb, ['-s', SERIAL, 'wait-for-device'], { timeout: 240_000 });
+  run(adb, ['-s', SERIAL, 'wait-for-device'], { timeout: 12 * 60 * 1000 });
 
   for (let attempt = 0; attempt < 360; attempt += 1) {
     try {
