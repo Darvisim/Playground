@@ -137,6 +137,11 @@ async function waitForTermux(adb) {
 async function main() {
   enableKvm();
 
+  const runnerTemp = process.env.RUNNER_TEMP || os.tmpdir();
+  const avdHome = path.join(runnerTemp, 'avd');
+  fs.mkdirSync(avdHome, { recursive: true });
+  process.env.ANDROID_AVD_HOME = avdHome;
+
   const sdkRoot = findSdkRoot();
   const sdkmanager = findSdkTool(sdkRoot, 'sdkmanager');
   const avdmanager = findSdkTool(sdkRoot, 'avdmanager');
@@ -164,9 +169,13 @@ async function main() {
     '--device', 'pixel_2',
   ], { input: 'no\n' });
 
+  const avdConfig = path.join(avdHome, `${AVD_NAME}.ini`);
+  if (!fs.existsSync(avdConfig)) {
+    throw new Error(`AVD config was not created: ${avdConfig}`);
+  }
+
   run(adb, ['start-server']);
 
-  const runnerTemp = process.env.RUNNER_TEMP || os.tmpdir();
   const statePath = path.join(runnerTemp, 'termux-emulator-state.json');
   const emulatorLogPath = path.join(runnerTemp, 'termux-emulator.log');
   const emulatorLogFd = fs.openSync(emulatorLogPath, 'a');
