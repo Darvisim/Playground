@@ -234,10 +234,12 @@ async function main() {
   run(adb, ['-s', SERIAL, 'install', apk]);
   await waitForTermux(adb);
 
-  const actionPath = process.env.GITHUB_ACTION_PATH;
-  if (!actionPath) throw new Error('GITHUB_ACTION_PATH is not set.');
-
-  const sourceWrapper = path.join(actionPath, 'scripts', 'run-termux.sh');
+  const sourceWrapper = path.resolve(
+    __dirname,
+    '..',
+    'scripts',
+    'run-termux.sh',
+  );
   if (!fs.existsSync(sourceWrapper)) {
     throw new Error(`Termux shell wrapper not found: ${sourceWrapper}`);
   }
