@@ -40,7 +40,10 @@ runs:
         script: |
           set -eu
 
-          apk="$RUNNER_TEMP/termux.apk"
+          : "${TERMUX_APK_URL:?termux-apk-url input is empty or missing}"
+          : "${TERMUX_COMMAND:?command input is empty or missing}"
+
+          apk=/tmp/termux.apk
           curl --fail --location "$TERMUX_APK_URL" --output "$apk"
           adb install "$apk"
           adb shell monkey -p com.termux 1 >/dev/null
