@@ -7,7 +7,7 @@ if [[ ! -f "$script_file" ]]; then
   exit 1
 fi
 
-adb_bin="${ADB:-adb}"
+adb_bin="${TERMUX_ADB:-${ADB:-adb}}"
 serial="${ANDROID_SERIAL:-emulator-5554}"
 
 "$adb_bin" -s "$serial" get-state >/dev/null
