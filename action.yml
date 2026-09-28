@@ -37,10 +37,8 @@ runs:
         arch: ${{ inputs.arch }}
         target: google_apis
         profile: pixel_2
-        disable-animations: true
-        emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
         script: |
-          set -euo pipefail
+          set -eu
 
           apk="$RUNNER_TEMP/termux.apk"
           curl --fail --location "$TERMUX_APK_URL" --output "$apk"
