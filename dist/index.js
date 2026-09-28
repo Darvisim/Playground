@@ -197,7 +197,25 @@ async function main() {
     adb,
   }));
 
-  await waitForBoot(adb);
+  try {
+    await waitForBoot(adb);
+  } catch (error) {
+    console.error('--- emulator log (last 200 lines) ---');
+    if (fs.existsSync(emulatorLog)) {
+      console.error(
+        fs.readFileSync(emulatorLog, 'utf8').split('\n').slice(-200).join('\n'),
+      );
+    }
+  
+    const devices = spawnSync(adb, ['devices', '-l'], {
+      encoding: 'utf8',
+      timeout: 10_000,
+    });
+    console.error('--- adb devices ---');
+    console.error(devices.stdout || devices.stderr || '(no output)');
+  
+    throw error;
+  }
 
   const apk = path.join(runnerTemp, 'termux-debug.apk');
   run('curl', ['--fail', '--location', '--retry', '3', '--output', apk, TERMUX_APK_URL]);
