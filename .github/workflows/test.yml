@@ -24,3 +24,11 @@ jobs:
         run: |
           chmod +x ./tests/termux_tests.sh
           ./tests/termux_tests.sh
+
+      - name: Run normal Termux tests
+        shell: termux {0}
+        run: |
+          ls
+          pwd
+          uname -a
+          $HOME
