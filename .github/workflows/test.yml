@@ -19,9 +19,8 @@ jobs:
         with:
           arch: x86_64
 
-      - name: Run smoke test in Termux
+      - name: Run parallel Termux tests
         shell: termux {0}
         run: |
-          test -x "$PREFIX/bin/bash"
-          printf 'Termux CI ready: %s\n' "$PREFIX"
-          bash --version
+          chmod +x ./tests/termux_tests.sh
+          ./tests/termux_tests.sh

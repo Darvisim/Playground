@@ -134,6 +134,58 @@ async function waitForTermux(adb) {
   throw new Error('Termux bootstrap did not finish in time.');
 }
 
+function syncWorkspaceToTermux(adb, serial, workspace) {
+  if (!workspace || !fs.existsSync(workspace)) {
+    return '/data/data/com.termux/files/home/workspace';
+  }
+
+  const remoteWorkspace = '/data/data/com.termux/files/home/workspace';
+
+  const tar = spawnSync('tar', ['-C', workspace, '-cf', '-', '.'], {
+    encoding: null,
+    maxBuffer: 1024 * 1024 * 1024,
+  });
+
+  if (tar.error) throw tar.error;
+  if (tar.status !== 0) {
+    const stderr = tar.stderr ? tar.stderr.toString() : 'unknown error';
+    throw new Error(`tar failed while packaging ${workspace}: ${stderr}`);
+  }
+
+  const copy = spawnSync(adb, [
+    '-s', serial,
+    'shell', '-T', 'run-as', 'com.termux',
+    'sh', '-c',
+    `rm -rf '${remoteWorkspace}' && mkdir -p '${remoteWorkspace}' && cd '${remoteWorkspace}' && tar -x -f -`,
+  ], {
+    input: tar.stdout,
+    stdio: ['pipe', 'inherit', 'inherit'],
+    timeout: 2 * 60 * 1000,
+  });
+
+  if (copy.error) throw copy.error;
+  if (copy.status !== 0) {
+    throw new Error(`Could not sync the workspace into Termux: ${copy.stderr || 'unknown error'}`);
+  }
+
+  const chmod = spawnSync(adb, [
+    '-s', serial,
+    'shell', '-T', 'run-as', 'com.termux',
+    'sh', '-c',
+    `find '${remoteWorkspace}' -type f -perm /111 -exec chmod 755 {} +`,
+  ], {
+    stdio: 'inherit',
+    timeout: 30_000,
+  });
+
+  if (chmod.error) throw chmod.error;
+  if (chmod.status !== 0) {
+    throw new Error('Could not restore executable permissions in the synced workspace.');
+  }
+
+  return remoteWorkspace;
+}
+
 async function main() {
   enableKvm();
 
@@ -234,6 +286,12 @@ async function main() {
   run(adb, ['-s', SERIAL, 'install', apk]);
   await waitForTermux(adb);
 
+  const termuxWorkspace = syncWorkspaceToTermux(
+    adb,
+    SERIAL,
+    process.env.GITHUB_WORKSPACE || process.cwd(),
+  );
+
   const sourceWrapper = path.join(__dirname, 'termux.js');
   if (!fs.existsSync(sourceWrapper)) {
     throw new Error(`Termux shell wrapper not found: ${sourceWrapper}`);
@@ -248,7 +306,7 @@ async function main() {
   fs.appendFileSync(process.env.GITHUB_PATH, `${binDirectory}${path.delimiter}`);
   fs.appendFileSync(
     process.env.GITHUB_ENV,
-    `ANDROID_SERIAL=${SERIAL}\nTERMUX_ADB=${adb}\n`,
+    `ANDROID_SERIAL=${SERIAL}\nTERMUX_ADB=${adb}\nTERMUX_WORKSPACE=${termuxWorkspace}\n`,
   );
 
   console.log(`Termux is ready on ${SERIAL}.`);
