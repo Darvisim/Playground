@@ -205,7 +205,7 @@ async function main() {
   const adb = path.join(sdkRoot, 'platform-tools', 'adb');
   const emulator = path.join(sdkRoot, 'emulator', 'emulator');
   const arch = process.env.INPUT_ARCH || 'x86_64';
-  const systemImage = `system-images;android-${API_LEVEL};google_apis;${arch}`;
+  const systemImage = `system-images;android-${API_LEVEL};default;${arch}`;
 
   run(sdkmanager, [`--sdk_root=${sdkRoot}`, '--licenses'], {
     input: 'y\n'.repeat(100),

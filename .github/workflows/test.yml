@@ -28,7 +28,12 @@ jobs:
       - name: Run normal Termux tests
         shell: termux {0}
         run: |
-          ls
-          pwd
-          uname -a
-          $HOME
+          pkg install -y tree
+          package_version="$(dpkg-query -W -f='${Version}' tree)"
+          package_path="$(command -v tree)"
+          test -n "$package_version"
+          case "$package_path" in
+            "$PREFIX"/bin/*) ;;
+            *) printf 'Unexpected tree install path: %s\n' "$package_path" >&2; exit 1 ;;
+          esac
+          printf 'tree version: %s\ninstalled at: %s\n' "$package_version" "$package_path"

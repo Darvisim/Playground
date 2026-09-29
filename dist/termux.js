@@ -58,21 +58,23 @@ const remoteArgs = [
   '-s', serial,
   'shell', '-T', 'run-as', 'com.termux',
   '/system/bin/toybox', 'env',
+  'ANDROID_DATA=/data',
+  'ANDROID_ROOT=/system',
   `PREFIX=${prefix}`,
   `HOME=${home}`,
+  'LANG=en_US.UTF-8',
   `TMPDIR=${prefix}/tmp`,
-  `PATH=${prefix}/bin:/system/bin`,
+  `PATH=${prefix}/bin`,
+  'TZ=UTC',
+  'TERM=xterm-256color',
   `LD_LIBRARY_PATH=${prefix}/lib`,
   `LD_PRELOAD=${prefix}/lib/libtermux-exec.so`,
-  `TERMUX_WORKSPACE=${termuxWorkspace}`,
-  'LANG=en_US.UTF-8',
-  'TERM=xterm-256color',
   `${prefix}/bin/bash`, '-s',
 ];
 
 const result = spawnSync(adb, remoteArgs, {
   input: Buffer.concat([
-    Buffer.from('cd "$TERMUX_WORKSPACE" || exit 1\n'),
+    Buffer.from(`cd '${termuxWorkspace}' || exit 1\n`),
     fs.readFileSync(scriptFile),
   ]),
   stdio: ['pipe', 'inherit', 'inherit'],

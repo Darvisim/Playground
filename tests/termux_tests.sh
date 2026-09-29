@@ -32,7 +32,16 @@ test_termux_environment() {
   [[ "$PREFIX" == /data/data/com.termux/files/usr ]]
   [[ -x "$PREFIX/bin/bash" ]]
   [[ -d "$HOME" ]]
-  printf 'PREFIX=%s\nHOME=%s\n' "$PREFIX" "$HOME"
+  [[ "$ANDROID_DATA" == /data ]]
+  [[ "$ANDROID_ROOT" == /system ]]
+  [[ "$LANG" == en_US.UTF-8 ]]
+  [[ "$PATH" == "$PREFIX/bin" ]]
+  [[ "$TMPDIR" == "$PREFIX/tmp" ]]
+  [[ "$TZ" == UTC ]]
+  [[ "$TERM" == xterm-256color ]]
+  printf 'ANDROID_DATA=%s\nANDROID_ROOT=%s\nHOME=%s\nLANG=%s\nPATH=%s\nPREFIX=%s\nTMPDIR=%s\nTZ=%s\nTERM=%s\n' \
+    "$ANDROID_DATA" "$ANDROID_ROOT" "$HOME" "$LANG" "$PATH" "$PREFIX" \
+    "$TMPDIR" "$TZ" "$TERM"
 }
 
 test_bash_runtime() {
