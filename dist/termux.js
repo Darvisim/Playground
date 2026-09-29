@@ -28,17 +28,17 @@ const device = spawnSync(adb, ['-s', serial, 'get-state'], {
 if (device.error) fail(`Could not contact the emulator: ${device.error.message}`);
 if (device.status !== 0) fail(`Emulator ${serial} is not ready.`);
 
-const bashCheck = spawnSync(adb, [
+const shellCheck = spawnSync(adb, [
   '-s', serial,
   'shell', '-T', 'run-as', 'com.termux',
-  '/system/bin/toybox', 'test', '-x', `${prefix}/bin/bash`,
+  '/system/bin/toybox', 'test', '-x', `${prefix}/bin/sh`,
 ], {
   stdio: 'ignore',
   timeout: 15_000,
 });
 
-if (bashCheck.error || bashCheck.status !== 0) {
-  fail('Termux Bash is unavailable. Make sure Termux setup completed successfully.');
+if (shellCheck.error || shellCheck.status !== 0) {
+  fail('Termux sh is unavailable. Make sure Termux setup completed successfully.');
 }
 
 const workspaceCheck = spawnSync(adb, [
@@ -69,7 +69,7 @@ const remoteArgs = [
   'TERM=xterm-256color',
   `LD_LIBRARY_PATH=${prefix}/lib`,
   `LD_PRELOAD=${prefix}/lib/libtermux-exec.so`,
-  `${prefix}/bin/bash`, '-s',
+  `${prefix}/bin/sh`, '-s',
 ];
 
 const result = spawnSync(adb, remoteArgs, {

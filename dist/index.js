@@ -10,6 +10,15 @@ const TERMUX_APK_URL = 'https://github.com/termux/termux-app/releases/download/v
 const SERIAL = 'emulator-5554';
 const AVD_NAME = 'termux-ci';
 
+async function withGroup(title, action) {
+  console.log(`::group::${title}`);
+  try {
+    return await action();
+  } finally {
+    console.log('::endgroup::');
+  }
+}
+
 function run(command, args, options = {}) {
   const capture = options.capture === true;
   const hasInput = options.input !== undefined;
@@ -119,7 +128,7 @@ async function waitForTermux(adb) {
     try {
       run(adb, [
         '-s', SERIAL, 'shell', 'run-as', 'com.termux',
-        'test', '-x', '/data/data/com.termux/files/usr/bin/bash',
+        'test', '-x', '/data/data/com.termux/files/usr/bin/sh',
       ], { timeout: 10_000 });
       return;
     } catch {
@@ -192,127 +201,148 @@ function syncWorkspaceToTermux(adb, serial, workspace) {
 }
 
 async function main() {
-  enableKvm();
+  await withGroup('Setting up KVM...', () => enableKvm());
 
   const runnerTemp = process.env.RUNNER_TEMP || os.tmpdir();
   const avdHome = path.join(runnerTemp, 'avd');
   fs.mkdirSync(avdHome, { recursive: true });
   process.env.ANDROID_AVD_HOME = avdHome;
 
-  const sdkRoot = findSdkRoot();
-  const sdkmanager = findSdkTool(sdkRoot, 'sdkmanager');
-  const avdmanager = findSdkTool(sdkRoot, 'avdmanager');
-  const adb = path.join(sdkRoot, 'platform-tools', 'adb');
-  const emulator = path.join(sdkRoot, 'emulator', 'emulator');
+  const { sdkRoot, sdkmanager, avdmanager, adb, emulator } = await withGroup(
+    'Locating Android SDK tools...',
+    () => {
+      const sdkRoot = findSdkRoot();
+      return {
+        sdkRoot,
+        sdkmanager: findSdkTool(sdkRoot, 'sdkmanager'),
+        avdmanager: findSdkTool(sdkRoot, 'avdmanager'),
+        adb: path.join(sdkRoot, 'platform-tools', 'adb'),
+        emulator: path.join(sdkRoot, 'emulator', 'emulator'),
+      };
+    },
+  );
   const arch = process.env.INPUT_ARCH || 'x86_64';
   const systemImage = `system-images;android-${API_LEVEL};default;${arch}`;
 
-  run(sdkmanager, [`--sdk_root=${sdkRoot}`, '--licenses'], {
-    input: 'y\n'.repeat(100),
+  await withGroup('Accepting Android SDK licenses...', () =>
+    run(sdkmanager, [`--sdk_root=${sdkRoot}`, '--licenses'], {
+      input: 'y\n'.repeat(100),
+    }),
+  );
+  await withGroup('Installing Android SDK packages...', () =>
+    run(sdkmanager, [
+      `--sdk_root=${sdkRoot}`,
+      'platform-tools',
+      'emulator',
+      `platforms;android-${API_LEVEL}`,
+      systemImage,
+    ]),
+  );
+
+  await withGroup('Creating Android virtual device...', () => {
+    run(avdmanager, [
+      'create', 'avd',
+      '--force',
+      '--name', AVD_NAME,
+      '--package', systemImage,
+      '--device', 'pixel_2',
+    ], { input: 'no\n' });
+
+    const avdConfig = path.join(avdHome, `${AVD_NAME}.ini`);
+    if (!fs.existsSync(avdConfig)) {
+      throw new Error(`AVD config was not created: ${avdConfig}`);
+    }
   });
-  run(sdkmanager, [
-    `--sdk_root=${sdkRoot}`,
-    'platform-tools',
-    'emulator',
-    `platforms;android-${API_LEVEL}`,
-    systemImage,
-  ]);
-
-  run(avdmanager, [
-    'create', 'avd',
-    '--force',
-    '--name', AVD_NAME,
-    '--package', systemImage,
-    '--device', 'pixel_2',
-  ], { input: 'no\n' });
-
-  const avdConfig = path.join(avdHome, `${AVD_NAME}.ini`);
-  if (!fs.existsSync(avdConfig)) {
-    throw new Error(`AVD config was not created: ${avdConfig}`);
-  }
-
-  run(adb, ['start-server']);
 
   const statePath = path.join(runnerTemp, 'termux-emulator-state.json');
   const emulatorLogPath = path.join(runnerTemp, 'termux-emulator.log');
-  const emulatorLogFd = fs.openSync(emulatorLogPath, 'a');
+  await withGroup('Starting Android emulator...', async () => {
+    run(adb, ['start-server']);
 
-  const emulatorProcess = spawn(emulator, [
-    '-avd', AVD_NAME,
-    '-port', '5554',
-    '-no-window',
-    '-gpu', 'swiftshader_indirect',
-    '-noaudio',
-    '-no-boot-anim',
-    '-no-snapshot',
-    '-no-snapshot-save',
-  ], {
-    detached: true,
-    stdio: ['ignore', emulatorLogFd, emulatorLogFd],
-    env: process.env,
-  });
-
-  fs.closeSync(emulatorLogFd);
-
-  await new Promise((resolve, reject) => {
-    emulatorProcess.once('spawn', resolve);
-    emulatorProcess.once('error', reject);
-  });
-  emulatorProcess.unref();
-
-  fs.writeFileSync(statePath, JSON.stringify({
-    pid: emulatorProcess.pid,
-    serial: SERIAL,
-    adb,
-  }));
-
-  try {
-    await waitForBoot(adb);
-  } catch (error) {
-    console.error('--- emulator log (last 200 lines) ---');
-    if (fs.existsSync(emulatorLogPath)) {
-      console.error(
-        fs.readFileSync(emulatorLogPath, 'utf8').split('\n').slice(-200).join('\n'),
-      );
-    }
-
-    const devices = spawnSync(adb, ['devices', '-l'], {
-      encoding: 'utf8',
-      timeout: 10_000,
+    const emulatorLogFd = fs.openSync(emulatorLogPath, 'a');
+    const emulatorProcess = spawn(emulator, [
+      '-avd', AVD_NAME,
+      '-port', '5554',
+      '-no-window',
+      '-gpu', 'swiftshader_indirect',
+      '-noaudio',
+      '-no-boot-anim',
+      '-no-snapshot',
+      '-no-snapshot-save',
+    ], {
+      detached: true,
+      stdio: ['ignore', emulatorLogFd, emulatorLogFd],
+      env: process.env,
     });
-    console.error('--- adb devices ---');
-    console.error(devices.stdout || devices.stderr || '(no output)');
 
-    throw error;
-  }
+    fs.closeSync(emulatorLogFd);
+
+    await new Promise((resolve, reject) => {
+      emulatorProcess.once('spawn', resolve);
+      emulatorProcess.once('error', reject);
+    });
+    emulatorProcess.unref();
+
+    fs.writeFileSync(statePath, JSON.stringify({
+      pid: emulatorProcess.pid,
+      serial: SERIAL,
+      adb,
+    }));
+
+    try {
+      await waitForBoot(adb);
+    } catch (error) {
+      console.error('--- emulator log (last 200 lines) ---');
+      if (fs.existsSync(emulatorLogPath)) {
+        console.error(
+          fs.readFileSync(emulatorLogPath, 'utf8').split('\n').slice(-200).join('\n'),
+        );
+      }
+
+      const devices = spawnSync(adb, ['devices', '-l'], {
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+      console.error('--- adb devices ---');
+      console.error(devices.stdout || devices.stderr || '(no output)');
+
+      throw error;
+    }
+  });
 
   const apk = path.join(runnerTemp, 'termux-debug.apk');
-  run('curl', ['--fail', '--location', '--retry', '3', '--output', apk, TERMUX_APK_URL]);
-  run(adb, ['-s', SERIAL, 'install', apk]);
-  await waitForTermux(adb);
+  await withGroup('Installing and starting Termux...', async () => {
+    run('curl', ['--fail', '--location', '--retry', '3', '--output', apk, TERMUX_APK_URL]);
+    run(adb, ['-s', SERIAL, 'install', apk]);
+    await waitForTermux(adb);
+  });
 
-  const termuxWorkspace = syncWorkspaceToTermux(
-    adb,
-    SERIAL,
-    process.env.GITHUB_WORKSPACE || process.cwd(),
+  const termuxWorkspace = await withGroup('Syncing workspace to Termux...', () =>
+    syncWorkspaceToTermux(
+      adb,
+      SERIAL,
+      process.env.GITHUB_WORKSPACE || process.cwd(),
+    ),
   );
 
-  const sourceWrapper = path.join(__dirname, 'termux.js');
-  if (!fs.existsSync(sourceWrapper)) {
-    throw new Error(`Termux shell wrapper not found: ${sourceWrapper}`);
-  }
+  await withGroup('Configuring Termux shell...', () => {
+    const sourceWrapper = path.join(__dirname, 'termux.js');
+    if (!fs.existsSync(sourceWrapper)) {
+      throw new Error(`Termux shell wrapper not found: ${sourceWrapper}`);
+    }
 
-  const binDirectory = path.join(runnerTemp, 'termux-bin');
-  fs.mkdirSync(binDirectory, { recursive: true });
-  const termuxCommand = path.join(binDirectory, 'termux');
-  fs.copyFileSync(sourceWrapper, termuxCommand);
-  fs.chmodSync(termuxCommand, 0o755);
+    const binDirectory = path.join(runnerTemp, 'termux-bin');
+    fs.mkdirSync(binDirectory, { recursive: true });
+    const termuxCommand = path.join(binDirectory, 'termux');
+    fs.copyFileSync(sourceWrapper, termuxCommand);
+    fs.chmodSync(termuxCommand, 0o755);
 
-  fs.appendFileSync(process.env.GITHUB_PATH, `${binDirectory}${path.delimiter}`);
-  fs.appendFileSync(
-    process.env.GITHUB_ENV,
-    `ANDROID_SERIAL=${SERIAL}\nTERMUX_ADB=${adb}\nTERMUX_WORKSPACE=${termuxWorkspace}\n`,
-  );
+    fs.appendFileSync(process.env.GITHUB_PATH, `${binDirectory}${path.delimiter}`);
+    fs.appendFileSync(
+      process.env.GITHUB_ENV,
+      `ANDROID_SERIAL=${SERIAL}\nTERMUX_ADB=${adb}\nTERMUX_WORKSPACE=${termuxWorkspace}\n`,
+    );
+  });
 
   console.log(`Termux is ready on ${SERIAL}.`);
 }
