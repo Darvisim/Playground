@@ -156,7 +156,7 @@ function syncWorkspaceToTermux(adb, serial, workspace) {
     '-s', serial,
     'shell', '-T', 'run-as', 'com.termux',
     'sh', '-c',
-    `rm -rf '${remoteWorkspace}' && mkdir -p '${remoteWorkspace}' && cd '${remoteWorkspace}' && tar -x -f -`,
+    `rm -rf ${remoteWorkspace}; mkdir -p ${remoteWorkspace}; cd ${remoteWorkspace}; tar -x -f -`,
   ], {
     input: tar.stdout,
     stdio: ['pipe', 'inherit', 'inherit'],
@@ -172,7 +172,7 @@ function syncWorkspaceToTermux(adb, serial, workspace) {
     '-s', serial,
     'shell', '-T', 'run-as', 'com.termux',
     'sh', '-c',
-    `find '${remoteWorkspace}' -type f -perm /111 -exec chmod 755 {} +`,
+    `find ${remoteWorkspace} -type f -perm /111 -exec chmod 755 {} +`,
   ], {
     stdio: 'inherit',
     timeout: 30_000,
