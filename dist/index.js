@@ -234,12 +234,7 @@ async function main() {
   run(adb, ['-s', SERIAL, 'install', apk]);
   await waitForTermux(adb);
 
-  const sourceWrapper = path.resolve(
-    __dirname,
-    '..',
-    'scripts',
-    'run-termux.sh',
-  );
+  const sourceWrapper = path.join(__dirname, 'termux.js');
   if (!fs.existsSync(sourceWrapper)) {
     throw new Error(`Termux shell wrapper not found: ${sourceWrapper}`);
   }
