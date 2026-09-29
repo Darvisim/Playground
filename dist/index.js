@@ -209,6 +209,7 @@ function syncWorkspaceToTermux(adb, serial, workspace) {
 async function main() {
   logStatus('Setting up KVM...');
   enableKvm();
+  console.log('KVM has been set up.');
 
   const runnerTemp = process.env.RUNNER_TEMP || os.tmpdir();
   const avdHome = path.join(runnerTemp, 'avd');
@@ -224,22 +225,46 @@ async function main() {
   const systemImage = `system-images;android-${API_LEVEL};default;${arch}`;
 
   logStatus('Accepting Android SDK licenses...');
-  run(sdkmanager, [`--sdk_root=${sdkRoot}`, '--licenses'], {
+  const licenseOutput = run(sdkmanager, [`--sdk_root=${sdkRoot}`, '--licenses'], {
     input: 'y\n'.repeat(100),
+    capture: true,
   });
+  const licenseTotal = licenseOutput.match(
+    /\bof\s+(\d+)\s+SDK package licenses not accepted\b/i,
+  )?.[1];
+  console.log(licenseTotal
+    ? `Accepted all ${licenseTotal} Android SDK licenses.`
+    : 'All Android SDK licenses accepted.');
 
   logStatus('Installing Android SDK packages...');
-  run(sdkmanager, [
-    `--sdk_root=${sdkRoot}`,
+  const sdkPackages = [
     'platform-tools',
     'emulator',
     `platforms;android-${API_LEVEL}`,
     systemImage,
+  ];
+  run(sdkmanager, [
+    `--sdk_root=${sdkRoot}`,
+    ...sdkPackages,
   ]);
+  const installedOutput = run(sdkmanager, [
+    `--sdk_root=${sdkRoot}`,
+    '--list_installed',
+  ], { capture: true });
+  const installedPackages = new Set(
+    installedOutput.split(/\r?\n/)
+      .map((line) => line.match(/^\s*([^|]+?)\s*\|/))
+      .filter(Boolean)
+      .map((match) => match[1].trim()),
+  );
+  const missingPackages = sdkPackages.filter((name) => !installedPackages.has(name));
+  if (missingPackages.length > 0) {
+    throw new Error(`SDK packages were not installed: ${missingPackages.join(', ')}`);
+  }
+  console.log(`Installed ${sdkPackages.length}/${sdkPackages.length} Android SDK packages.`);
 
   const statePath = path.join(runnerTemp, 'termux-emulator-state.json');
   const emulatorLogPath = path.join(runnerTemp, 'termux-emulator.log');
-  logStatus('Starting an Android emulator...');
   run(avdmanager, [
     'create', 'avd',
     '--force',
@@ -253,6 +278,7 @@ async function main() {
     throw new Error(`AVD config was not created: ${avdConfig}`);
   }
 
+  logStatus('Starting an Android device emulator...');
   run(adb, ['start-server']);
 
   const emulatorLogFd = fs.openSync(emulatorLogPath, 'a');
@@ -288,6 +314,7 @@ async function main() {
 
   try {
     await waitForBoot(adb);
+    console.log('Device emulator is active.');
   } catch (error) {
     console.error('--- emulator log (last 200 lines) ---');
     if (fs.existsSync(emulatorLogPath)) {
@@ -353,7 +380,6 @@ async function main() {
       '',
     ].join('\n'),
   );
-
   console.log('Termux is setup and ready on device emulator.');
 }
 
