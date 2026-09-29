@@ -67,12 +67,14 @@ const remoteArgs = [
   `TERMUX_WORKSPACE=${termuxWorkspace}`,
   'LANG=en_US.UTF-8',
   'TERM=xterm-256color',
-  `${prefix}/bin/bash`, '-lc',
-  'cd "$TERMUX_WORKSPACE" && exec "$PREFIX/bin/bash" -s',
+  `${prefix}/bin/bash`, '-s',
 ];
 
 const result = spawnSync(adb, remoteArgs, {
-  input: fs.readFileSync(scriptFile),
+  input: Buffer.concat([
+    Buffer.from('cd "$TERMUX_WORKSPACE" || exit 1\n'),
+    fs.readFileSync(scriptFile),
+  ]),
   stdio: ['pipe', 'inherit', 'inherit'],
 });
 
