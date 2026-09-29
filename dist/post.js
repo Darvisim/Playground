@@ -5,11 +5,17 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-function run(command, args) {
+function run(command, args, hostEnv = {}) {
+  const env = { ...process.env };
+  for (const [name, value] of Object.entries(hostEnv)) {
+    if (value === null || value === undefined) delete env[name];
+    else env[name] = value;
+  }
+
   return spawnSync(command, args, {
     stdio: 'ignore',
     timeout: 20_000,
-    env: process.env,
+    env,
   });
 }
 
@@ -34,16 +40,17 @@ if (!fs.existsSync(statePath)) process.exit(0);
 
 async function cleanup() {
   let adb;
-  console.log('::group::Stopping Termux emulator...');
+  let hostEnv = {};
   try {
     const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
     adb = state.adb;
-    console.log('Requesting emulator shutdown through ADB...');
-    run(state.adb, ['-s', state.serial, 'emu', 'kill']);
+    hostEnv = state.hostEnv || {};
+    console.log('Stopping Android emulator device...');
+    run(state.adb, ['-s', state.serial, 'emu', 'kill'], hostEnv);
 
     if (state.pid) {
       try {
-        console.log(`Sending SIGTERM to emulator process group ${state.pid}...`);
+        console.log(`Terminating remaining emulator processes (PID ${state.pid})...`);
         process.kill(-state.pid, 'SIGTERM');
       } catch (error) {
         if (error.code !== 'ESRCH') throw error;
@@ -55,7 +62,7 @@ async function cleanup() {
 
       if (processGroupExists(state.pid)) {
         try {
-          console.log(`Sending SIGKILL to remaining emulator processes in group ${state.pid}...`);
+          console.log(`Force-stopping remaining emulator processes (PID ${state.pid})...`);
           process.kill(-state.pid, 'SIGKILL');
         } catch (error) {
           if (error.code !== 'ESRCH') throw error;
@@ -66,11 +73,10 @@ async function cleanup() {
     console.warn(`Termux emulator cleanup warning: ${error.message}`);
   } finally {
     if (adb) {
-      console.log('Stopping the action ADB server...');
-      run(adb, ['kill-server']);
+      console.log('Stopping ADB server...');
+      run(adb, ['kill-server'], hostEnv);
     }
     fs.rmSync(statePath, { force: true });
-    console.log('::endgroup::');
   }
 }
 

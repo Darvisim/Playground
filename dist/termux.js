@@ -6,11 +6,29 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const scriptFile = process.argv[2];
-const adb = process.env.TERMUX_ADB || process.env.ADB || 'adb';
-const serial = process.env.ANDROID_SERIAL || 'emulator-5554';
+const configPath = path.join(__dirname, 'termux-config.json');
+const config = fs.existsSync(configPath)
+  ? JSON.parse(fs.readFileSync(configPath, 'utf8'))
+  : {};
+const adb = config.adb || process.env.TERMUX_ADB || process.env.ADB || 'adb';
+const serial = config.serial || process.env.ANDROID_SERIAL || 'emulator-5554';
 const prefix = '/data/data/com.termux/files/usr';
 const home = '/data/data/com.termux/files/home';
-const termuxWorkspace = process.env.TERMUX_WORKSPACE || path.posix.join(home, 'workspace');
+const termuxWorkspace = config.workspace
+  || process.env.TERMUX_WORKSPACE
+  || path.posix.join(home, 'workspace');
+const hostEnvKeys = ['ANDROID_DATA', 'ANDROID_ROOT', 'HOME', 'PATH', 'PREFIX', 'TMPDIR'];
+
+function runAdb(args, options = {}) {
+  const env = { ...process.env };
+  for (const name of hostEnvKeys) {
+    const value = config.hostEnv?.[name];
+    if (value === null || value === undefined) delete env[name];
+    else env[name] = value;
+  }
+
+  return spawnSync(adb, args, { ...options, env });
+}
 
 function fail(message) {
   console.error(message);
@@ -20,7 +38,7 @@ function fail(message) {
 if (!scriptFile) fail('Usage: termux <script-file>');
 if (!fs.existsSync(scriptFile)) fail(`Script file not found: ${scriptFile}`);
 
-const device = spawnSync(adb, ['-s', serial, 'get-state'], {
+const device = runAdb(['-s', serial, 'get-state'], {
   encoding: 'utf8',
   timeout: 15_000,
 });
@@ -28,7 +46,7 @@ const device = spawnSync(adb, ['-s', serial, 'get-state'], {
 if (device.error) fail(`Could not contact the emulator: ${device.error.message}`);
 if (device.status !== 0) fail(`Emulator ${serial} is not ready.`);
 
-const shellCheck = spawnSync(adb, [
+const shellCheck = runAdb([
   '-s', serial,
   'shell', '-T', 'run-as', 'com.termux',
   '/system/bin/toybox', 'test', '-x', `${prefix}/bin/sh`,
@@ -41,7 +59,7 @@ if (shellCheck.error || shellCheck.status !== 0) {
   fail('Termux sh is unavailable. Make sure Termux setup completed successfully.');
 }
 
-const workspaceCheck = spawnSync(adb, [
+const workspaceCheck = runAdb([
   '-s', serial,
   'shell', '-T', 'run-as', 'com.termux',
   'test', '-d', termuxWorkspace,
@@ -72,7 +90,7 @@ const remoteArgs = [
   `${prefix}/bin/sh`, '-s',
 ];
 
-const result = spawnSync(adb, remoteArgs, {
+const result = runAdb(remoteArgs, {
   input: Buffer.concat([
     Buffer.from(`cd '${termuxWorkspace}' || exit 1\n`),
     fs.readFileSync(scriptFile),
