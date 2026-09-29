@@ -152,35 +152,40 @@ function syncWorkspaceToTermux(adb, serial, workspace) {
     throw new Error(`tar failed while packaging ${workspace}: ${stderr}`);
   }
 
-  const copy = spawnSync(adb, [
+  const runAs = (args, options = {}) => spawnSync(adb, [
     '-s', serial,
     'shell', '-T', 'run-as', 'com.termux',
-    'sh', '-c',
-    `rm -rf ${remoteWorkspace}; mkdir -p ${remoteWorkspace}; cd ${remoteWorkspace}; tar -x -f -`,
+    ...args,
+  ], {
+    stdio: options.input === undefined
+      ? 'inherit'
+      : ['pipe', 'inherit', 'inherit'],
+    input: options.input,
+    timeout: options.timeout ?? 30_000,
+  });
+
+  const remove = runAs(['/system/bin/toybox', 'rm', '-rf', remoteWorkspace]);
+  if (remove.error) throw remove.error;
+  if (remove.status !== 0) {
+    throw new Error('Could not remove the previous Termux workspace.');
+  }
+
+  const mkdir = runAs(['/system/bin/toybox', 'mkdir', '-p', remoteWorkspace]);
+  if (mkdir.error) throw mkdir.error;
+  if (mkdir.status !== 0) {
+    throw new Error('Could not create the Termux workspace directory.');
+  }
+
+  const copy = runAs([
+    '/system/bin/toybox', 'tar', '-x', '-f', '-', '-C', remoteWorkspace,
   ], {
     input: tar.stdout,
-    stdio: ['pipe', 'inherit', 'inherit'],
     timeout: 2 * 60 * 1000,
   });
 
   if (copy.error) throw copy.error;
   if (copy.status !== 0) {
-    throw new Error(`Could not sync the workspace into Termux: ${copy.stderr || 'unknown error'}`);
-  }
-
-  const chmod = spawnSync(adb, [
-    '-s', serial,
-    'shell', '-T', 'run-as', 'com.termux',
-    'sh', '-c',
-    `find ${remoteWorkspace} -type f -perm /111 -exec chmod 755 {} +`,
-  ], {
-    stdio: 'inherit',
-    timeout: 30_000,
-  });
-
-  if (chmod.error) throw chmod.error;
-  if (chmod.status !== 0) {
-    throw new Error('Could not restore executable permissions in the synced workspace.');
+    throw new Error('Could not extract the workspace archive in Termux.');
   }
 
   return remoteWorkspace;
