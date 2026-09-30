@@ -19,20 +19,6 @@ function run(command, args, hostEnv = {}) {
   });
 }
 
-function processGroupExists(pid) {
-  try {
-    process.kill(-pid, 0);
-    return true;
-  } catch (error) {
-    if (error.code === 'ESRCH') return false;
-    throw error;
-  }
-}
-
-function sleep(milliseconds) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
 const runnerTemp = process.env.RUNNER_TEMP || os.tmpdir();
 const statePath = path.join(runnerTemp, 'termux-emulator-state.json');
 
@@ -47,28 +33,6 @@ async function cleanup() {
     hostEnv = state.hostEnv || {};
     console.log('Stopping Android emulator device...');
     run(state.adb, ['-s', state.serial, 'emu', 'kill'], hostEnv);
-
-    if (state.pid) {
-      try {
-        console.log(`Terminating remaining emulator processes (PID ${state.pid})...`);
-        process.kill(-state.pid, 'SIGTERM');
-      } catch (error) {
-        if (error.code !== 'ESRCH') throw error;
-      }
-
-      for (let attempt = 0; attempt < 20 && processGroupExists(state.pid); attempt += 1) {
-        await sleep(250);
-      }
-
-      if (processGroupExists(state.pid)) {
-        try {
-          console.log(`Force-stopping remaining emulator processes (PID ${state.pid})...`);
-          process.kill(-state.pid, 'SIGKILL');
-        } catch (error) {
-          if (error.code !== 'ESRCH') throw error;
-        }
-      }
-    }
   } catch (error) {
     console.warn(`Termux emulator cleanup warning: ${error.message}`);
   } finally {

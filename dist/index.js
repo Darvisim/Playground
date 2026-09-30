@@ -306,7 +306,6 @@ async function main() {
   emulatorProcess.unref();
 
   fs.writeFileSync(statePath, JSON.stringify({
-    pid: emulatorProcess.pid,
     serial: SERIAL,
     adb,
     hostEnv: captureHostEnv(),
@@ -361,6 +360,7 @@ async function main() {
     adb,
     serial: SERIAL,
     workspace: termuxWorkspace,
+    hostWorkspace: process.env.GITHUB_WORKSPACE || process.cwd(),
     hostEnv: captureHostEnv(),
   }));
 
