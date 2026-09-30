@@ -35,30 +35,61 @@ function runAdb(args, options = {}) {
   return spawnSync(adb, args, { ...options, env: hostEnvironment() });
 }
 
-function waitForChild(child, name) {
-  return new Promise((resolve, reject) => {
-    child.once('error', reject);
-    child.once('close', (code, signal) => {
-      if (code === 0) resolve();
-      else reject(new Error(`${name} failed${signal ? ` with signal ${signal}` : ` with exit code ${code}`}.`));
-    });
+function captureTail(stream) {
+  let output = '';
+  stream?.on('data', (chunk) => {
+    output = `${output}${chunk}`.slice(-4096);
+  });
+  return () => output.trim();
+}
+
+function waitForChild(child) {
+  return new Promise((resolve) => {
+    child.once('error', (error) => resolve({ error }));
+    child.once('close', (code, signal) => resolve({ code, signal }));
   });
 }
 
+function childResult(name, result) {
+  if (result.error) return `${name}: ${result.error.message}`;
+  return `${name}: ${result.signal ? `signal ${result.signal}` : `exit ${result.code}`}`;
+}
+
 async function streamBetweenProcesses(source, destination, description) {
-  const sourceStatus = waitForChild(source, `${description} source`);
-  const destinationStatus = waitForChild(destination, `${description} destination`);
+  const sourceStderr = captureTail(source.stderr);
+  const destinationStderr = captureTail(destination.stderr);
+  const sourceStatus = waitForChild(source);
+  const destinationStatus = waitForChild(destination);
 
   try {
-    await Promise.all([
+    const [, sourceResult, destinationResult] = await Promise.all([
       pipeline(source.stdout, destination.stdin),
       sourceStatus,
       destinationStatus,
     ]);
+
+    if (sourceResult.code !== 0 || destinationResult.code !== 0) {
+      throw new Error([
+        childResult('source', sourceResult),
+        childResult('destination', destinationResult),
+        sourceStderr() && `source stderr: ${sourceStderr()}`,
+        destinationStderr() && `destination stderr: ${destinationStderr()}`,
+      ].filter(Boolean).join('\n'));
+    }
   } catch (error) {
     source.kill();
     destination.kill();
-    throw error;
+    const [sourceResult, destinationResult] = await Promise.all([
+      sourceStatus,
+      destinationStatus,
+    ]);
+    const details = [
+      childResult('source', sourceResult),
+      childResult('destination', destinationResult),
+      sourceStderr() && `source stderr: ${sourceStderr()}`,
+      destinationStderr() && `destination stderr: ${destinationStderr()}`,
+    ].filter(Boolean);
+    throw new Error(`${description} failed: ${error.message}\n${details.join('\n')}`);
   }
 }
 
@@ -85,7 +116,7 @@ async function syncWorkspaceToTermux() {
 
   const archive = spawn('tar', ['-C', hostWorkspace, '-cf', '-', '.'], {
     env: hostEnvironment(),
-    stdio: ['ignore', 'pipe', 'inherit'],
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
   const extract = spawn(adb, [
     '-s', serial,
@@ -93,7 +124,7 @@ async function syncWorkspaceToTermux() {
     '/system/bin/toybox', 'tar', '-x', '-f', '-', '-C', termuxWorkspace,
   ], {
     env: hostEnvironment(),
-    stdio: ['pipe', 'ignore', 'inherit'],
+    stdio: ['pipe', 'ignore', 'pipe'],
   });
 
   await streamBetweenProcesses(archive, extract, 'Host-to-Termux workspace sync');
@@ -110,11 +141,11 @@ async function syncWorkspaceToHost() {
     '/system/bin/toybox', 'tar', '-c', '-f', '-', '-C', termuxWorkspace, '.',
   ], {
     env: hostEnvironment(),
-    stdio: ['ignore', 'pipe', 'inherit'],
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
   const extract = spawn('tar', ['-x', '-f', '-', '-C', temporaryWorkspace], {
     env: hostEnvironment(),
-    stdio: ['pipe', 'ignore', 'inherit'],
+    stdio: ['pipe', 'ignore', 'pipe'],
   });
 
   try {
